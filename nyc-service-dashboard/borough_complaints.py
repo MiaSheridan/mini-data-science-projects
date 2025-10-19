@@ -50,39 +50,44 @@ def main():
 
     #read csv and count compplaints
     with open(args.input, "r") as f:
-        #csv reader 
         reader = csv.DictReader(f)
         for row in reader:
-            #get created_date
-            created_dt=parse_date(row.get(CREATED_COL, "Unkown"))
-            #print("DEBUG:", row.get(CREATED_COL), "->", created_dt)
-            if not created_dt or not (start_day <= created_dt <= end_day):
+            created_text = row.get(CREATED_COL, "")
+            created_dt = parse_date(created_text)
+
+            complaint = row.get(COMPLAINT_COL, "").strip().lower()
+            borough = row.get(BOROUGH_COL, "").strip().lower().title()
+
+            if not complaint or not borough or created_dt is None:
                 continue
 
-            complaint = row.get(COMPLAINT_COL, "Unknown")
-            borough=row.get(BOROUGH_COL, "Unkown")
+            if not (start_day <= created_dt <= end_day):
+                continue
 
+            # Count using tuple key
+            key = (complaint, borough)
+            counts[key] = counts.get(key, 0) + 1
 
-            if complaint not in counts:
-                counts[complaint] = {}
-            
-            if borough not in counts[complaint]:
-                counts[complaint][borough] =0
+    # Convert counts dict to a list of tuples
+    output_rows = [(complaint, borough, count) for (complaint, borough), count in counts.items()]
 
-            counts[complaint][borough] +=1
+    # Sort by count descending
+    output_rows.sort(key=lambda x: x[2], reverse=True)
 
-    #output reesults to CSV or stdout
+    # Output to file or stdout
+    if args.output:
+        out_f = open(args.output, "w", newline="")
+    else:
+        out_f = sys.stdout
 
-    out_f = open(args.output, "w", newline="") if args.output else sys.stdout
     writer = csv.writer(out_f)
     writer.writerow(["complaint type", "borough", "count"])
-
-    for complaint in sorted(counts):
-        for borough in sorted(counts[complaint]):
-            writer.writerow([complaint, borough, counts[complaint][borough]])
+    for row in output_rows:
+        writer.writerow(row)
 
     if args.output:
         out_f.close()
+
 
 if __name__ == "__main__":
     main()
